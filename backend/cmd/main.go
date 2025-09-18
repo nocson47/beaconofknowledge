@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
-	postgressql "github.com/nocson47/invoker_board/adapters/postgreSQL"
-	"github.com/nocson47/invoker_board/config"
+	postgressql "github.com/nocson47/beaconofknowledge/adapters/postgreSQL"
+	"github.com/nocson47/beaconofknowledge/config"
 )
 
 func main() {

@@ -1,6 +1,6 @@
 package repositories
 
-import "github.com/nocson47/invoker_board/internal/entities"
+import "github.com/nocson47/beaconofknowledge/internal/entities"
 
 // UserRepository defines the interface for user-related database operations
 type UserRepository interface {

@@ -1,8 +1,8 @@
 package usecases
 
 import (
-	"github.com/nocson47/invoker_board/internal/entities"
-	"github.com/nocson47/invoker_board/internal/repositories"
+	"github.com/nocson47/beaconofknowledge/internal/entities"
+	"github.com/nocson47/beaconofknowledge/internal/repositories"
 )
 
 type UserUseCase struct {

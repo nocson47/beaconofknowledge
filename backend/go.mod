@@ -1,4 +1,4 @@
-module github.com/nocson47/invoker_board
+module github.com/nocson47/beaconofknowledge
 
 go 1.24.2
 

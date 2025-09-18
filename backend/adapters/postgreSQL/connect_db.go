@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/nocson47/invoker_board/config"
+	"github.com/nocson47/beaconofknowledge/config"
 )
 
 func ConnectPGX(cfg *config.Configuration) (*pgx.Conn, error) {
