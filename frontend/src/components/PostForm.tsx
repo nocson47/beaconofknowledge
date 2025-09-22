@@ -22,21 +22,21 @@ const PostForm: React.FC<Props> = ({ onSubmit }) => {
     >
       <input
         className="border p-2 w-full mb-2 rounded"
-        placeholder="หัวข้อกระทู้"
+        placeholder="Topic"
         value={title}
         onChange={e => setTitle(e.target.value)}
         required
       />
       <textarea
         className="border p-2 w-full mb-2 rounded"
-        placeholder="เนื้อหา"
+        placeholder="content"
         value={content}
         onChange={e => setContent(e.target.value)}
         required
       />
       <input
         className="border p-2 w-full mb-2 rounded"
-        placeholder="แท็ก (คั่นด้วย , )"
+        placeholder="tag (separate by , )"
         value={tags}
         onChange={e => setTags(e.target.value)}
       />
