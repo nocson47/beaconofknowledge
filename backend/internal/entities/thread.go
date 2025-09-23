@@ -3,8 +3,10 @@ package entities
 import "time"
 
 type Thread struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
+	ID     int `json:"id"`
+	UserID int `json:"user_id"`
+	// Author username (denormalized for read responses)
+	Author    string    `json:"author,omitempty"`
 	Title     string    `json:"title"`
 	Body      string    `json:"body"`
 	Tags      []string  `json:"tags,omitempty"`

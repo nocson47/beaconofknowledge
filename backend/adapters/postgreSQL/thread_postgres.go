@@ -59,17 +59,18 @@ func (r *ThreadPostgres) CreateThread(ctx context.Context, thread *entities.Thre
 
 func (r *ThreadPostgres) GetThreadByID(ctx context.Context, id int) (*entities.Thread, error) {
 	query := `
-    SELECT t.id, t.user_id, t.title, t.body, t.is_locked, t.is_deleted, t.upvotes, t.downvotes, t.created_at, t.updated_at,
-	    COALESCE(array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL), '{}') AS tags
-    FROM threads t
-    LEFT JOIN thread_tags tt ON tt.thread_id = t.id
-    LEFT JOIN tags ON tags.id = tt.tag_id
-    WHERE t.id = $1
-    GROUP BY t.id;
+	SELECT t.id, t.user_id, u.username AS author, t.title, t.body, t.is_locked, t.is_deleted, t.upvotes, t.downvotes, t.created_at, t.updated_at,
+		COALESCE(array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL), '{}') AS tags
+	FROM threads t
+	LEFT JOIN users u ON u.id = t.user_id
+	LEFT JOIN thread_tags tt ON tt.thread_id = t.id
+	LEFT JOIN tags ON tags.id = tt.tag_id
+	WHERE t.id = $1
+	GROUP BY t.id, u.username;
     `
 	var thread entities.Thread
 	var tags []string
-	if err := r.db.QueryRow(ctx, query, id).Scan(&thread.ID, &thread.UserID, &thread.Title, &thread.Body, &thread.IsLocked, &thread.IsDeleted, &thread.Upvotes, &thread.Downvotes, &thread.CreatedAt, &thread.UpdatedAt, &tags); err != nil {
+	if err := r.db.QueryRow(ctx, query, id).Scan(&thread.ID, &thread.UserID, &thread.Author, &thread.Title, &thread.Body, &thread.IsLocked, &thread.IsDeleted, &thread.Upvotes, &thread.Downvotes, &thread.CreatedAt, &thread.UpdatedAt, &tags); err != nil {
 		// use pgxpool/errors handling at caller
 		return nil, fmt.Errorf("failed to retrieve thread: %w", err)
 	}
@@ -127,12 +128,13 @@ func (r *ThreadPostgres) DeleteThread(ctx context.Context, id int) error {
 
 func (r *ThreadPostgres) GetAllThreads(ctx context.Context) ([]*entities.Thread, error) {
 	query := `
-	SELECT t.id, t.user_id, t.title, t.body, t.is_locked, t.is_deleted, t.upvotes, t.downvotes, t.created_at, t.updated_at,
+	SELECT t.id, t.user_id, u.username AS author, t.title, t.body, t.is_locked, t.is_deleted, t.upvotes, t.downvotes, t.created_at, t.updated_at,
 		COALESCE(array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL), '{}') AS tags
 	FROM threads t
+	LEFT JOIN users u ON u.id = t.user_id
 	LEFT JOIN thread_tags tt ON tt.thread_id = t.id
 	LEFT JOIN tags ON tags.id = tt.tag_id
-	GROUP BY t.id;`
+	GROUP BY t.id, u.username;`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve threads: %w", err)
@@ -143,7 +145,7 @@ func (r *ThreadPostgres) GetAllThreads(ctx context.Context) ([]*entities.Thread,
 	for rows.Next() {
 		var th entities.Thread
 		var tags []string
-		if err := rows.Scan(&th.ID, &th.UserID, &th.Title, &th.Body, &th.IsLocked, &th.IsDeleted, &th.Upvotes, &th.Downvotes, &th.CreatedAt, &th.UpdatedAt, &tags); err != nil {
+		if err := rows.Scan(&th.ID, &th.UserID, &th.Author, &th.Title, &th.Body, &th.IsLocked, &th.IsDeleted, &th.Upvotes, &th.Downvotes, &th.CreatedAt, &th.UpdatedAt, &tags); err != nil {
 			return nil, fmt.Errorf("failed to scan thread: %w", err)
 		}
 		th.Tags = tags

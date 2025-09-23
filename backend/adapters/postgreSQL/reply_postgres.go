@@ -28,7 +28,8 @@ func (r *ReplyPostgres) CreateReply(ctx context.Context, rep *entities.Reply) (i
 }
 
 func (r *ReplyPostgres) GetRepliesByThread(ctx context.Context, threadID int) ([]entities.Reply, error) {
-	query := `SELECT id, thread_id, user_id, parent_id, body, is_deleted, created_at, updated_at FROM replies WHERE thread_id = $1 ORDER BY created_at ASC`
+	// Join users to include username as author for read responses
+	query := `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.thread_id = $1 ORDER BY r.created_at ASC`
 	rows, err := r.db.Query(ctx, query, threadID)
 	if err != nil {
 		return nil, fmt.Errorf("get replies: %w", err)
@@ -37,7 +38,7 @@ func (r *ReplyPostgres) GetRepliesByThread(ctx context.Context, threadID int) ([
 	var reps []entities.Reply
 	for rows.Next() {
 		var rep entities.Reply
-		if err := rows.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
+		if err := rows.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.Author, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan reply: %w", err)
 		}
 		reps = append(reps, rep)
@@ -53,10 +54,18 @@ func (r *ReplyPostgres) DeleteReply(ctx context.Context, id int) error {
 	return nil
 }
 
+func (r *ReplyPostgres) UpdateReply(ctx context.Context, rep *entities.Reply) error {
+	_, err := r.db.Exec(ctx, `UPDATE replies SET body=$1, updated_at = NOW() WHERE id = $2`, rep.Body, rep.ID)
+	if err != nil {
+		return fmt.Errorf("update reply: %w", err)
+	}
+	return nil
+}
+
 func (r *ReplyPostgres) GetReplyByID(ctx context.Context, id int) (*entities.Reply, error) {
 	var rep entities.Reply
-	row := r.db.QueryRow(ctx, `SELECT id, thread_id, user_id, parent_id, body, is_deleted, created_at, updated_at FROM replies WHERE id = $1`, id)
-	if err := row.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
+	row := r.db.QueryRow(ctx, `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.id = $1`, id)
+	if err := row.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.Author, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("get reply by id: %w", err)
 	}
 	return &rep, nil

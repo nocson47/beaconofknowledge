@@ -7,7 +7,7 @@ const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const handleSubmit = async (post: any) => {
     try {
-      await api.createThread({ title: post.title, content: post.body, tags: post.tags });
+  await api.createThread({ title: post.title, body: post.body, tags: post.tags });
       navigate('/');
     } catch (err) {
       console.error(err);

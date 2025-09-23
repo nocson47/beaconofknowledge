@@ -55,6 +55,8 @@ func main() {
 
 	// Initialize Fiber app
 	app := fiber.New()
+	// Apply CORS before rate limiter so preflight (OPTIONS) get CORS headers
+	app.Use(http.Cors())
 	// Apply rate limiter globally (you can scope it per-route as needed)
 	app.Use(http.RateLimiter())
 
@@ -65,7 +67,7 @@ func main() {
 	})
 
 	// Set up routes (router config will use auth middleware where needed)
-	http.SetupRouter(app, userHandler, userService, threadHandler, voteHandler, replyHandler)
+	http.SetupRouter(app, userHandler, userService, threadHandler, threadService, voteHandler, replyHandler)
 
 	// Start the server
 	log.Fatal(app.Listen(":3000"))

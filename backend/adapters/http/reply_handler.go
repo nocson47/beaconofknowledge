@@ -109,3 +109,42 @@ func (h *ReplyHandler) DeleteReply(c *fiber.Ctx) error {
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+type updateReplyReq struct {
+	Body string `json:"body"`
+}
+
+func (h *ReplyHandler) UpdateReply(c *fiber.Ctx) error {
+	idStr := c.Params("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+	}
+	var req updateReplyReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
+	}
+	uidVal := c.Locals("user_id")
+	if uidVal == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing authorization"})
+	}
+	uid, ok := uidVal.(int)
+	if !ok || uid == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user id"})
+	}
+	// determine if user is admin
+	usr, uerr := h.userSvc.GetUserByID(c.UserContext(), uid)
+	isAdmin := false
+	if uerr == nil && usr != nil && usr.Role == "admin" {
+		isAdmin = true
+	}
+
+	rep := &entities.Reply{ID: id, Body: req.Body}
+	if err := h.svc.UpdateReply(c.UserContext(), rep, uid, isAdmin); err != nil {
+		if err.Error() == "forbidden: cannot edit others' replies" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}

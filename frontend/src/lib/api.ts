@@ -31,21 +31,35 @@ async function request(path: string, opts: RequestInit = {}) {
 
 export async function login(username: string, password: string): Promise<LoginResp> {
   const body = JSON.stringify({ username, password });
-  const resp = await request('/login', { method: 'POST', body });
+  const resp = await request('/users/login', { method: 'POST', body });
   // assume resp: { token, expires_in, user }
   if (resp.token) setToken(resp.token);
-  if (resp.user) localStorage.setItem('auth_user', JSON.stringify(resp.user));
+  // If backend did not return user object, fetch it by username
+  if (resp.user) {
+    localStorage.setItem('auth_user', JSON.stringify(resp.user));
+  } else {
+    try {
+      const user = await request(`/users/username/${encodeURIComponent(username)}`);
+      if (user) localStorage.setItem('auth_user', JSON.stringify(user));
+    } catch (e) {
+      // ignore fetch user failure; token is set so future requests can be authorized
+      console.warn('failed to fetch user after login', e);
+    }
+  }
+  // notify listeners in the same tab that auth changed
+  try { window.dispatchEvent(new Event('authChanged')); } catch {}
   return resp;
 }
 
 export async function register(payload: any) {
   const body = JSON.stringify(payload);
-  return request('/register', { method: 'POST', body });
+  return request('/users', { method: 'POST', body });
 }
 
 export function logout() {
   setToken(null);
   localStorage.removeItem('auth_user');
+  try { window.dispatchEvent(new Event('authChanged')); } catch {}
 }
 
 export function getUserLocal() {
@@ -56,8 +70,49 @@ export async function getThreads() {
   return request('/threads');
 }
 
+export async function getThread(id: number | string) {
+  return request(`/threads/${id}`);
+}
+
+export async function voteThread(thread_id: number | string, value: 'up' | 'down' | 1 | -1) {
+  const body = JSON.stringify({ thread_id: Number(thread_id), value });
+  return request('/votes', { method: 'POST', body });
+}
+
+export async function getThreadCounts(id: number | string) {
+  return request(`/threads/${id}/votes`);
+}
+
 export async function createThread(payload: any) {
   return request('/threads', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateThread(id: number | string, payload: any) {
+  return request(`/threads/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function deleteThread(id: number | string) {
+  return request(`/threads/${id}`, { method: 'DELETE' });
+}
+
+export async function getUserByID(id: number | string) {
+  return request(`/users/${id}`);
+}
+
+export async function getRepliesByThread(thread_id: number | string) {
+  return request(`/replies/thread/${thread_id}`);
+}
+
+export async function createReply(payload: any) {
+  return request('/replies', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateReply(id: number | string, payload: any) {
+  return request(`/replies/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
+export async function deleteReply(id: number | string) {
+  return request(`/replies/${id}`, { method: 'DELETE' });
 }
 
 export async function uploadAvatar(file: File, user_id: string) {
@@ -71,4 +126,4 @@ export async function uploadAvatar(file: File, user_id: string) {
   return res.json();
 }
 
-export default { login, register, logout, getThreads, createThread, uploadAvatar, getUserLocal };
+export default { login, register, logout, getThreads, getThread, createThread, updateThread, deleteThread, voteThread, getThreadCounts, getUserByID, uploadAvatar, getUserLocal, getRepliesByThread, createReply, updateReply, deleteReply };

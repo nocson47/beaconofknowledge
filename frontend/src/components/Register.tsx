@@ -20,11 +20,11 @@ const Register: React.FC = () => {
 
 	return (
 		<div className="max-w-md mx-auto p-6 bg-white rounded shadow">
-			<h2 className="text-2xl font-semibold mb-4">สมัครสมาชิก</h2>
+			<h2 className="text-2xl font-semibold mb-4">Register</h2>
 			<form onSubmit={handleSubmit} className="space-y-4">
-				<input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ชื่อผู้ใช้" required className="w-full p-2 border rounded" />
-				<input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="รหัสผ่าน" type="password" required className="w-full p-2 border rounded" />
-				<button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">สมัคร</button>
+				<input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" required className="w-full p-2 border rounded" />
+				<input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" required className="w-full p-2 border rounded" />
+				<button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Create Account</button>
 				{error && <div className="text-red-500">{error}</div>}
 			</form>
 		</div>

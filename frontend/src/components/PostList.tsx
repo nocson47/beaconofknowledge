@@ -24,7 +24,9 @@ const PostList: React.FC = () => {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <PostItem key={post.id} post={post} />
+        <div key={post.id} className="max-w-3xl mx-auto">
+          <PostItem post={post} />
+        </div>
       ))}
     </div>
   );

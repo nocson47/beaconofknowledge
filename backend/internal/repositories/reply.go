@@ -11,4 +11,5 @@ type ReplyRepository interface {
 	GetRepliesByThread(ctx context.Context, threadID int) ([]entities.Reply, error)
 	GetReplyByID(ctx context.Context, id int) (*entities.Reply, error)
 	DeleteReply(ctx context.Context, id int) error
+	UpdateReply(ctx context.Context, r *entities.Reply) error
 }

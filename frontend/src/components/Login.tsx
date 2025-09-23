@@ -22,13 +22,13 @@ const Login: React.FC = () => {
     return (
         <div className="login-container">
             <form onSubmit={handleSubmit} className="login-form">
-                <h2>เข้าสู่ระบบ</h2>
+                <h2>Login</h2>
                 <div className="form-group">
                     <input
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="ชื่อผู้ใช้"
+                        placeholder="Username or email"
                         required
                     />
                 </div>
@@ -37,11 +37,11 @@ const Login: React.FC = () => {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="รหัสผ่าน"
+                        placeholder="Password"
                         required
                     />
                 </div>
-                <button type="submit">เข้าสู่ระบบ</button>
+                <button type="submit">Login</button>
                 {error && <div className="text-red-500 mt-2">{error}</div>}
             </form>
         </div>
