@@ -1,36 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PostItem from './PostItem';
 import type { Post } from '../types/post';
+import api from '../lib/api';
 
-const mockPosts: Post[] = [
-  {
-    id: 1,
-    title: 'ตัวอย่างโพสต์แรก',
-    content: 'เนื้อหาของโพสต์แรก',
-    author: 'User1',
-    createdAt: new Date().toISOString(),
-    tags: ['react', 'webboard'],
-    clap: 2,
-    down: 0,
-  },
-  {
-    id: 2,
-    title: 'ตัวอย่างโพสต์ที่สอง',
-    content: 'เนื้อหาของโพสต์ที่สอง',
-    author: 'User2',
-    createdAt: new Date().toISOString(),
-    tags: ['typescript', 'frontend'],
-    clap: 5,
-    down: 1,
-  },
-];
+const PostList: React.FC = () => {
+  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-const PostList: React.FC = () => (
-  <div className="space-y-4">
-    {mockPosts.map(post => (
-      <PostItem key={post.id} post={post} />
-    ))}
-  </div>
-);
+  useEffect(() => {
+    let mounted = true;
+    api.getThreads().then((data: any) => {
+      if (!mounted) return;
+      // assume data is array or { threads }
+      const list = Array.isArray(data) ? data : data.threads || [];
+      setPosts(list);
+    }).catch((e: any) => setErr(e.message || 'failed'));
+    return () => { mounted = false; };
+  }, []);
+
+  if (err) return <div className="text-red-500">{err}</div>;
+  if (!posts) return <div>กำลังโหลด...</div>;
+
+  return (
+    <div className="space-y-4">
+      {posts.map((post) => (
+        <PostItem key={post.id} post={post} />
+      ))}
+    </div>
+  );
+};
 
 export default PostList;
