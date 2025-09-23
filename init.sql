@@ -57,3 +57,56 @@ CREATE TABLE IF NOT EXISTS votes (
 -- Indexes
 CREATE INDEX idx_threads_title ON threads(title);
 CREATE FULLTEXT INDEX ft_threads_body ON threads(body);
+
+-- Tags (many-to-many with threads)
+CREATE TABLE IF NOT EXISTS tags (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS thread_tags (
+  thread_id INT NOT NULL,
+  tag_id INT NOT NULL,
+  PRIMARY KEY (thread_id, tag_id),
+  FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Useful indexes
+CREATE INDEX idx_thread_tags_tag_id ON thread_tags(tag_id);
+CREATE INDEX idx_replies_thread_id ON replies(thread_id);
+
+-- Sample seed data (development only)
+-- Insert users for development
+INSERT INTO users (username, email, pass_hash, role, created_at)
+SELECT 'alice','alice@example.com','dev-hash','user',NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'alice');
+
+INSERT INTO users (username, email, pass_hash, role, created_at)
+SELECT 'bob','bob@example.com','dev-hash','user',NOW()
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'bob');
+
+-- Insert a sample thread
+INSERT INTO threads (user_id, title, body, is_locked, is_deleted, created_at)
+SELECT u.id, 'Welcome to the mini webboard', 'This is a seeded thread to help development.', 0, 0, NOW()
+FROM users u WHERE u.username = 'alice' AND NOT EXISTS (SELECT 1 FROM threads WHERE title = 'Welcome to the mini webboard');
+
+-- Insert a reply to the sample thread
+INSERT INTO replies (thread_id, user_id, parent_id, body, is_deleted, created_at)
+SELECT t.id, u.id, NULL, 'This is a reply from Bob.', 0, NOW()
+FROM threads t CROSS JOIN users u
+WHERE t.title = 'Welcome to the mini webboard' AND u.username = 'bob'
+  AND NOT EXISTS (SELECT 1 FROM replies r WHERE r.body = 'This is a reply from Bob.');
+
+-- Insert a sample tag and link it
+INSERT INTO tags (name) SELECT 'introduction' WHERE NOT EXISTS (SELECT 1 FROM tags WHERE name = 'introduction');
+INSERT INTO thread_tags (thread_id, tag_id)
+SELECT t.id, tg.id FROM threads t JOIN tags tg ON tg.name = 'introduction' WHERE t.title = 'Welcome to the mini webboard'
+  AND NOT EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.thread_id = t.id AND tt.tag_id = tg.id);
+
+-- A sample vote (Alice upvotes the seeded thread)
+INSERT INTO votes (user_id, thread_id, reply_id, value, created_at)
+SELECT u.id, t.id, NULL, 1, NOW() FROM users u JOIN threads t ON t.title = 'Welcome to the mini webboard'
+WHERE u.username = 'alice' AND NOT EXISTS (SELECT 1 FROM votes v WHERE v.user_id = u.id AND v.thread_id = t.id);
+
+-- End of init.sql
