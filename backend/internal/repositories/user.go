@@ -1,14 +1,16 @@
 package repositories
 
-import "github.com/nocson47/beaconofknowledge/internal/entities"
+import (
+	"context"
 
-// UserRepository defines the interface for user-related database operations
+	"github.com/nocson47/beaconofknowledge/internal/entities"
+)
+
 type UserRepository interface {
-	CreateUser(user *entities.User) error
-	GetUserByID(id int) (*entities.User, error)
-	GetUserByUsername(username string) (*entities.User, error)
-	GetAllUsers() ([]*entities.User, error) // use pointer to avoid copying and null values
-	UpdateUser(user *entities.User) error
-	DeleteUser(id int) error
-	UserLogin(username, password string) (*entities.User, error)
+	GetAllUsers(ctx context.Context) ([]entities.User, error)
+	CreateUser(ctx context.Context, user *entities.User) (int, error)
+	GetUserByID(ctx context.Context, id int) (*entities.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*entities.User, error)
+	UpdateUser(ctx context.Context, user *entities.User) error
+	DeleteUser(ctx context.Context, id int) error
 }

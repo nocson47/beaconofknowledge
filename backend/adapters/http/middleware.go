@@ -1,0 +1,125 @@
+package http
+
+import (
+	"log"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/nocson47/beaconofknowledge/adapters/jwt"
+	"github.com/nocson47/beaconofknowledge/internal/usecases"
+)
+
+// RequireAuth checks Authorization Bearer token and sets user id in locals
+func RequireAuth() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		auth := c.Get("Authorization")
+		if auth == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing authorization"})
+		}
+		// Support headers like: "Bearer <token>" (case-insensitive) and trim spaces
+		token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		if token == "" {
+			// try lowercase bearer
+			token = strings.TrimSpace(strings.TrimPrefix(auth, "bearer "))
+		}
+		uid, err := jwt.ParseToken(token)
+		if err != nil || uid == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token"})
+		}
+		// store user id for downstream handlers
+		c.Locals("user_id", uid)
+		return c.Next()
+	}
+}
+
+// RateLimiter returns a rate limiter middleware for JWT-authenticated routes
+func RateLimiter() fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        30,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			// prefer user id if set, else IP
+			if uid := c.Locals("user_id"); uid != nil {
+				if id, ok := uid.(int); ok {
+					return "user:" + strconv.Itoa(id)
+				}
+			}
+			return c.IP()
+		},
+	})
+}
+
+// AdminOnly ensures the authenticated user has role "admin".
+// It requires a UserService to lookup the user and check role.
+func AdminOnly(userSvc usecases.UserService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		uidVal := c.Locals("user_id")
+		if uidVal == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing user id"})
+		}
+		uid, ok := uidVal.(int)
+		if !ok || uid == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user id"})
+		}
+		user, err := userSvc.GetUserByID(c.UserContext(), uid)
+		if err != nil || user == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
+		}
+		if user.Role != "admin" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "admin required"})
+		}
+		return c.Next()
+	}
+}
+
+// RequestLogger logs start and end of each request with duration and status.
+func RequestLogger() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		start := time.Now()
+		reqID := strconv.FormatInt(start.UnixNano(), 10)
+		log.Printf("→ START %s %s id=%s", c.Method(), c.OriginalURL(), reqID)
+		// let the handler run
+		err := c.Next()
+		duration := time.Since(start)
+		status := c.Response().StatusCode()
+		if err != nil {
+			log.Printf("← END %s %s id=%s status=%d duration=%s err=%v", c.Method(), c.OriginalURL(), reqID, status, duration, err)
+			return err
+		}
+		log.Printf("← END %s %s id=%s status=%d duration=%s", c.Method(), c.OriginalURL(), reqID, status, duration)
+		return nil
+	}
+}
+
+var requestLock sync.Mutex
+
+// RequestLock serializes requests (global lock) so you can observe completion deterministically.
+// While locked, it sets header X-Request-Locked: true. Use only for debugging/development.
+func RequestLock() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		requestLock.Lock()
+		defer requestLock.Unlock()
+		// indicate lock held
+		c.Set("X-Request-Locked", "true")
+		// run handler while lock is held
+		return c.Next()
+	}
+}
+
+// Cors returns a permissive CORS middleware suitable for development.
+// Adjust the config for production to restrict allowed origins, methods and headers.
+func Cors() fiber.Handler {
+	// Use a specific origin for development to allow credentials safely.
+	// If you need multiple origins, list them comma-separated or make this value configurable.
+	return cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: true,
+	})
+}
