@@ -14,6 +14,11 @@ type Configuration struct {
 	DBUser        string `mapstructure:"DB_USER"`
 	DBPassword    string `mapstructure:"DB_PASSWORD"`
 	DBName        string `mapstructure:"DB_NAME"`
+	MongoHost     string `mapstructure:"MONGO_HOST"`
+	MongoPort     int    `mapstructure:"MONGO_PORT"`
+	MongoUser     string `mapstructure:"MONGO_USER"`
+	MongoPassword string `mapstructure:"MONGO_PASSWORD"`
+	MongoDBName   string `mapstructure:"MONGO_DBNAME"`
 	RedisHost     string `mapstructure:"REDIS_HOST"`
 	RedisPort     int    `mapstructure:"REDIS_PORT"`
 	RedisPassword string `mapstructure:"REDIS_PASSWORD"`

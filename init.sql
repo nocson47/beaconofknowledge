@@ -110,3 +110,18 @@ SELECT u.id, t.id, NULL, 1, NOW() FROM users u JOIN threads t ON t.title = 'Welc
 WHERE u.username = 'alice' AND NOT EXISTS (SELECT 1 FROM votes v WHERE v.user_id = u.id AND v.thread_id = t.id);
 
 -- End of init.sql
+
+-- Reports: user-submitted reports for threads or users
+  CREATE TABLE IF NOT EXISTS reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reporter_id INT NULL,
+    kind ENUM('thread','user') NOT NULL,
+    target_id INT NOT NULL,
+    reason TEXT,
+    status ENUM('open','resolved','dismissed') NOT NULL DEFAULT 'open',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_by INT NULL,
+    resolved_at DATETIME NULL,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+  ) ENGINE=InnoDB;

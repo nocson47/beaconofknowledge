@@ -75,6 +75,9 @@ func (s *userService) UpdateUser(ctx context.Context, u *entities.User) error {
 	}
 	u.Username = strings.TrimSpace(u.Username)
 	u.Email = strings.TrimSpace(u.Email)
+	u.Bio = strings.TrimSpace(u.Bio)
+	u.Social = strings.TrimSpace(u.Social)
+	u.AvatarURL = strings.TrimSpace(u.AvatarURL)
 	return s.userRepo.UpdateUser(ctx, u)
 }
 

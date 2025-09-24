@@ -127,6 +127,7 @@ func (r *ThreadPostgres) DeleteThread(ctx context.Context, id int) error {
 }
 
 func (r *ThreadPostgres) GetAllThreads(ctx context.Context) ([]*entities.Thread, error) {
+	// Only return threads that are not soft-deleted so frontend won't show deleted posts
 	query := `
 	SELECT t.id, t.user_id, u.username AS author, t.title, t.body, t.is_locked, t.is_deleted, t.upvotes, t.downvotes, t.created_at, t.updated_at,
 		COALESCE(array_agg(tags.name) FILTER (WHERE tags.name IS NOT NULL), '{}') AS tags
@@ -134,6 +135,7 @@ func (r *ThreadPostgres) GetAllThreads(ctx context.Context) ([]*entities.Thread,
 	LEFT JOIN users u ON u.id = t.user_id
 	LEFT JOIN thread_tags tt ON tt.thread_id = t.id
 	LEFT JOIN tags ON tags.id = tt.tag_id
+	WHERE t.is_deleted = false
 	GROUP BY t.id, u.username;`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {

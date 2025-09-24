@@ -29,7 +29,8 @@ func (r *ReplyPostgres) CreateReply(ctx context.Context, rep *entities.Reply) (i
 
 func (r *ReplyPostgres) GetRepliesByThread(ctx context.Context, threadID int) ([]entities.Reply, error) {
 	// Join users to include username as author for read responses
-	query := `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.thread_id = $1 ORDER BY r.created_at ASC`
+	// only return replies that are not soft-deleted
+	query := `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.thread_id = $1 AND r.is_deleted = false ORDER BY r.created_at ASC`
 	rows, err := r.db.Query(ctx, query, threadID)
 	if err != nil {
 		return nil, fmt.Errorf("get replies: %w", err)
@@ -64,7 +65,8 @@ func (r *ReplyPostgres) UpdateReply(ctx context.Context, rep *entities.Reply) er
 
 func (r *ReplyPostgres) GetReplyByID(ctx context.Context, id int) (*entities.Reply, error) {
 	var rep entities.Reply
-	row := r.db.QueryRow(ctx, `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.id = $1`, id)
+	// only return reply if not soft-deleted
+	row := r.db.QueryRow(ctx, `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.id = $1 AND r.is_deleted = false`, id)
 	if err := row.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.Author, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("get reply by id: %w", err)
 	}

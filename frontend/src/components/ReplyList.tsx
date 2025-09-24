@@ -12,10 +12,12 @@ const ReplyList: React.FC<{ threadId: number | string }> = ({ threadId }) => {
   const load = () => {
     api.getRepliesByThread(threadId).then((data:any) => {
       if (!data) return setReplies([]);
-      if (Array.isArray(data)) return setReplies(data);
-      if (data.replies && Array.isArray(data.replies)) return setReplies(data.replies);
-      // fallback: try common shapes
-      return setReplies([]);
+      let list: any[] = [];
+      if (Array.isArray(data)) list = data;
+      else if (data.replies && Array.isArray(data.replies)) list = data.replies;
+      // filter out soft-deleted replies defensively
+      list = list.filter(r => !(r.is_deleted === true || r.isDeleted === true));
+      return setReplies(list);
     }).catch((e:any) => setErr(e?.message || 'failed to load replies'));
   };
 

@@ -21,7 +21,7 @@
     pgadmin:
       image: dpage/pgadmin4:8.12
       container_name: go_pgadmin
-      restart: always
+      restart: alwayss
       profiles: ["tools"]
       environment:
         PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}

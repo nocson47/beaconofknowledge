@@ -29,9 +29,14 @@ func RequireAuth() fiber.Handler {
 		}
 		uid, err := jwt.ParseToken(token)
 		if err != nil || uid == 0 {
+			// Log parse error to help debugging token issues (don't log the token value)
+			if err != nil {
+				log.Printf("RequireAuth: token parse error: %v", err)
+			} else {
+				log.Printf("RequireAuth: token parsed but returned uid=0")
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token"})
 		}
-		// store user id for downstream handlers
 		c.Locals("user_id", uid)
 		return c.Next()
 	}
@@ -61,6 +66,48 @@ func RateLimiter() fiber.Handler {
 					return "user:" + strconv.Itoa(id)
 				}
 			}
+			return c.IP()
+		},
+	})
+}
+
+// RateLimiterAuth is intended to be used after RequireAuth() so c.Locals("user_id") is available.
+// It uses per-user keys (user:<id>) and enforces a stricter per-user limit.
+func RateLimiterAuth() fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        120, // 120 requests per minute per user
+		Expiration: 1 * time.Minute,
+		Next: func(c *fiber.Ctx) bool {
+			if c.Method() == "OPTIONS" {
+				return true
+			}
+			if c.Path() == "/" {
+				return true
+			}
+			return false
+		},
+		KeyGenerator: func(c *fiber.Ctx) string {
+			if uid := c.Locals("user_id"); uid != nil {
+				if id, ok := uid.(int); ok {
+					return "user:" + strconv.Itoa(id)
+				}
+			}
+			// fallback to IP if not available
+			return c.IP()
+		},
+	})
+}
+
+// RateLimiterStrict is for sensitive unauthenticated endpoints like login/register.
+// It uses IP-based keys but with a low limit to prevent brute-force/spam.
+func RateLimiterStrict() fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        10, // e.g. 10 requests per minute per IP
+		Expiration: 1 * time.Minute,
+		Next: func(c *fiber.Ctx) bool {
+			return c.Method() == "OPTIONS"
+		},
+		KeyGenerator: func(c *fiber.Ctx) string {
 			return c.IP()
 		},
 	})

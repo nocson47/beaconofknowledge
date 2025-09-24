@@ -59,12 +59,12 @@ func (u *UserPostgres) CreateUser(ctx context.Context, user *entities.User) (int
 
 // GetUserByID retrieves a user by their ID
 func (u *UserPostgres) GetUserByID(ctx context.Context, id int) (*entities.User, error) {
-	// select only columns that exist in your DB: pass_hash instead of password, and created_at
-	query := `SELECT id, username, email, pass_hash, role, created_at FROM users WHERE id = $1`
+	// select columns including profile fields
+	query := `SELECT id, username, email, pass_hash, role, created_at, updated_at, COALESCE(bio, ''), COALESCE(social, ''), COALESCE(avatar_url, '') FROM users WHERE id = $1`
 	row := u.db.QueryRow(ctx, query, id)
 
 	var user entities.User
-	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt); err != nil {
+	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.Bio, &user.Social, &user.AvatarURL); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
@@ -75,11 +75,11 @@ func (u *UserPostgres) GetUserByID(ctx context.Context, id int) (*entities.User,
 
 // GetUserByUsername retrieves a user by their username
 func (u *UserPostgres) GetUserByUsername(ctx context.Context, username string) (*entities.User, error) {
-	query := `SELECT id, username, email, pass_hash, role, created_at FROM users WHERE username = $1`
+	query := `SELECT id, username, email, pass_hash, role, created_at, updated_at, COALESCE(bio, ''), COALESCE(social, ''), COALESCE(avatar_url, '') FROM users WHERE username = $1`
 	row := u.db.QueryRow(ctx, query, username)
 
 	var user entities.User
-	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt); err != nil {
+	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.Bio, &user.Social, &user.AvatarURL); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
@@ -90,9 +90,10 @@ func (u *UserPostgres) GetUserByUsername(ctx context.Context, username string) (
 
 // UpdateUser updates an existing user's information
 func (u *UserPostgres) UpdateUser(ctx context.Context, user *entities.User) error {
-	// Update only columns that exist: pass_hash instead of password; don't rely on updated_at
-	query := `UPDATE users SET username = $1, email = $2, pass_hash = $3, role = $4 WHERE id = $5`
-	_, err := u.db.Exec(ctx, query, user.Username, user.Email, user.Password, user.Role, user.ID)
+	// Update profile columns including bio, social, and avatar_url
+	// also update updated_at so changes are recorded even without a DB trigger
+	query := `UPDATE users SET username = $1, email = $2, pass_hash = $3, role = $4, bio = $5, social = $6, avatar_url = $7, updated_at = NOW() WHERE id = $8`
+	_, err := u.db.Exec(ctx, query, user.Username, user.Email, user.Password, user.Role, user.Bio, user.Social, user.AvatarURL, user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}

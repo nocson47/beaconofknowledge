@@ -99,6 +99,10 @@ export async function getUserByID(id: number | string) {
   return request(`/users/${id}`);
 }
 
+export async function updateUser(id: number | string, payload: any) {
+  return request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+}
+
 export async function getRepliesByThread(thread_id: number | string) {
   return request(`/replies/thread/${thread_id}`);
 }
@@ -126,4 +130,18 @@ export async function uploadAvatar(file: File, user_id: string) {
   return res.json();
 }
 
-export default { login, register, logout, getThreads, getThread, createThread, updateThread, deleteThread, voteThread, getThreadCounts, getUserByID, uploadAvatar, getUserLocal, getRepliesByThread, createReply, updateReply, deleteReply };
+export async function report(kind: 'thread' | 'user', target_id: number | string, reason?: string) {
+  const body = JSON.stringify({ kind, target_id: Number(target_id), reason });
+  return request('/reports', { method: 'POST', body });
+}
+
+export async function getReports(kind?: 'thread' | 'user') {
+  const q = kind ? `?kind=${encodeURIComponent(kind)}` : '';
+  return request(`/reports${q}`);
+}
+
+export async function getMe() {
+  return request('/users/me');
+}
+
+export default { login, register, logout, getThreads, getThread, createThread, updateThread, deleteThread, voteThread, getThreadCounts, getUserByID, updateUser, uploadAvatar, report, getReports, getMe, getUserLocal, getRepliesByThread, createReply, updateReply, deleteReply };

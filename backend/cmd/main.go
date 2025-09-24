@@ -5,10 +5,13 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/nocson47/beaconofknowledge/adapters/http"
+	mongoadapters "github.com/nocson47/beaconofknowledge/adapters/mongo"
 	postgressql "github.com/nocson47/beaconofknowledge/adapters/postgreSQL"
 	redisadapters "github.com/nocson47/beaconofknowledge/adapters/redis"
 	"github.com/nocson47/beaconofknowledge/config"
+	"github.com/nocson47/beaconofknowledge/internal/repositories"
 	"github.com/nocson47/beaconofknowledge/internal/usecases"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func main() {
@@ -53,6 +56,25 @@ func main() {
 	replyService := usecases.NewReplyService(replyRepo)
 	replyHandler := http.NewReplyHandler(replyService, userService, redisClient)
 
+	// Reports: prefer Mongo if available, otherwise Postgres
+	var reportRepoUse repositories.ReportRepository
+	var reportService usecases.ReportService
+	var reportHandler *http.ReportHandler
+	var logCol *mongo.Collection
+	mongoClient, mErr := mongoadapters.ConnectMongo(&cfg)
+	if mErr == nil {
+		log.Println("Connected to MongoDB, using Mongo report repository")
+		reportRepoUse = mongoadapters.NewMongoReportRepo(mongoClient, cfg.MongoDBName)
+		// prepare a logs collection for optional audit writes
+		logCol = mongoClient.Database(cfg.MongoDBName).Collection("logs")
+	} else {
+		log.Printf("Mongo not available: %v — using Postgres reports", mErr)
+		reportRepoUse = postgressql.NewReportPostgres(postgresConn)
+		logCol = nil
+	}
+	reportService = usecases.NewReportService(reportRepoUse)
+	reportHandler = http.NewReportHandler(reportService, logCol)
+
 	// Initialize Fiber app
 	app := fiber.New()
 	// Apply CORS before rate limiter so preflight (OPTIONS) get CORS headers
@@ -67,7 +89,7 @@ func main() {
 	})
 
 	// Set up routes (router config will use auth middleware where needed)
-	http.SetupRouter(app, userHandler, userService, threadHandler, threadService, voteHandler, replyHandler)
+	http.SetupRouter(app, userHandler, userService, threadHandler, threadService, voteHandler, replyHandler, reportHandler)
 
 	// Start the server
 	log.Fatal(app.Listen(":3000"))
