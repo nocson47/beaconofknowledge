@@ -1,46 +1,49 @@
 # Beacon of Knowledge — Mini Forum (MVP)
 
-This repository is a small Vite + React frontend and Go (Fiber) backend implementing a mini forum with hexagonal architecture.
+A compact forum application (MVP) implemented with a Vite + React frontend and a Go (Fiber) backend. The project uses a hexagonal architecture: core business logic lives in internal usecases and concrete behavior is provided by adapters for HTTP, persistence, email, and other infrastructure.
 
-The purpose of this README is to explain how to run the project locally, list implemented features, outline security notes and limitations, and provide a candid scoring against the assignment rubric shown in the attachment.
+This README explains how to run the project locally, the implemented features, security considerations, and suggested next steps.
 
-## Quick overview
-- Backend: Go + Fiber, PostgreSQL, Redis, optional Mongo for reports/logs
-- Frontend: Vite + React + TypeScript + Tailwind
-- Architecture: Hexagonal — internal usecases define ports; adapters implement persistence, HTTP, JWT
+## Tech stack and architecture
+- Backend: Go (Fiber)
+- Database: PostgreSQL (primary), Redis (cache), optional MongoDB (reports/audit)
+- Frontend: Vite + React + TypeScript + Tailwind CSS
+- Architecture: Hexagonal (usecases, repositories, adapters)
 
-## Implemented features (high level)
-- Auth: register, login (bcrypt hashed passwords), JWT-based authentication
-- Profiles: avatar URL, bio, social link, update profile (owner or admin only)
-- Threads & replies: create/read/update/delete (soft-delete conventions in usecases)
-- Admin: role-based middleware (admin-only endpoints), simple admin pages in frontend
-- Reports: user reporting flow implemented; Mongo adapter persists reports and audit logs when available
-- Caching: Redis wired in and used for some handlers
-- Rate limiting: per-IP and per-user rate limiters in middleware
+## Features (high level)
+- Authentication: register and login (bcrypt password hashing) with JWT-based sessions
+- Profiles: avatar, bio, social links, profile update (owner or admin only)
+- Threads & replies: create, read, update, delete (soft-delete semantics in usecases)
+- Admin: role-based middleware and simple admin UI pages
+- Reporting: user report flow with optional Mongo persistence for audit logs
+- Caching: Redis used where appropriate
+- Rate limiting and basic request throttling middleware
 
-## What to run locally
-Prerequisites: Go 1.20+, Node 18+, Docker (for running Postgres/Redis/Mongo if you prefer using docker-compose)
+## Quick start (local development)
+Prerequisites: Go 1.20+, Node 18+, Docker (optional for DB/Redis/Mongo)
 
-1) Copy env example and adjust values
+1. Copy example environment file and edit values
 
 ```bash
 cp backend/.env.example backend/.env
+# Edit backend/.env to set DB, Redis, and other values
 ```
 
-2) Start dependent services (quick dev using docker-compose)
+2. (Optional) Start local services with docker-compose
 
 ```bash
 docker-compose up -d postgres redis mongo
 ```
 
-3) Start backend
+3. Start the backend
 
 ```bash
 cd backend
 go build ./cmd && ./cmd
+# or for a quick dev run: go run ./cmd
 ```
 
-4) Start frontend
+4. Start the frontend
 
 ```bash
 cd frontend
@@ -48,53 +51,49 @@ npm install
 npm run dev
 ```
 
-API runs on :3000 by default (check `cmd/main.go`). Frontend dev server runs on :5173.
+Defaults: backend listens on port 3000 (see `cmd/main.go`), frontend dev server runs on port 5173.
 
-## Security notes (current status)
-- Authentication uses JWTs stored in `localStorage` and sent as `Authorization: Bearer <token>`.
-  - Pros: This pattern avoids classic cookie-based CSRF if cookies are not used.
-  - Cons: Storing tokens in localStorage is vulnerable to XSS; mitigate with CSP and careful input sanitization.
-- CORS: Development CORS is permissive to `http://localhost:5173`. In production, you should configure allowed origins via environment variables and avoid `Access-Control-Allow-Origin: *` with credentials.
-- CSRF: There is no explicit CSRF token implemented. Because JWTs are sent in headers by the frontend, classic CSRF risk is low — provided you do not switch to cookie-based auth without adding CSRF protection.
-- Recommended immediate hardening:
-  - Read allowed origins from environment and restrict in production.
-  - Add middleware to validate `Origin`/`Referer` for state-changing requests.
-  - Add CSP and secure headers (X-Content-Type-Options, X-Frame-Options) and sanitize inputs.
+## Configuration highlights
+- `backend/.env` contains runtime configuration for DB, Redis, Mongo, and SMTP.
+- For development, the SMTP settings are intentionally left blank so the app prints reset links to logs (ConsoleEmailSender). To enable real SMTP, set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT`, and `SMTP_FROM` and restart backend.
 
-## Limitations / TODO (short)
-- Tests: limited automated tests; add unit/integration tests for usecases and handlers
-- Mongo audit logging currently performs non-blocking writes but should log failures and create appropriate indexes
-- UpdateReportStatus behavior should be tested for parity across Postgres and Mongo adapters
-- Additional production hardening (migrations, secrets management, rate limiting tuning)
+Security note: never commit real API keys or secrets to the repository. Use `.gitignore` and a secrets manager for production credentials.
 
-## Rubric assessment (honest self-score)
+## Security considerations (current status)
+- Authentication: uses JWTs sent in the `Authorization` header. This avoids cookie-based CSRF but storing tokens in `localStorage` is vulnerable to XSS. Mitigate with strong Content Security Policy (CSP) and input sanitization.
+- CORS: development is permissive to `http://localhost:5173`. In production, configure allowed origins via environment variables and avoid overly permissive CORS.
+- CSRF: there is no CSRF token system implemented. If you switch to cookie-based authentication, add CSRF protections.
+- Recommended hardening:
+  - Restrict allowed origins from env and validate `Origin`/`Referer` on state-changing requests.
+  - Add CSP and secure response headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, etc.).
+  - Use a secrets manager for API keys and credentials; never commit `.env` with secrets.
 
-I evaluated the project against the rubric in the attachment. Below is a candid score out of 100 and how the points were assigned.
+## Limitations & TODO
+- Improve automated tests: add unit and integration tests for core usecases and HTTP handlers
+- Production readiness: database migrations, robust logging, observability, and secrets management
+- Mongo audit logging currently uses non-blocking writes; consider retries and indexing for production
+- More admin UI polish and functionality (user / report management)
 
-- Database design / ERD, indices and relationships — 18/20
-  - Reason: Schema and `init.sql` present; Postgres + Mongo used properly. Missing explicit secondary DB justification docs and some index creation for Mongo audit collection.
-- Features (Auth, profiles, posts/comments, admin) — 18/20
-  - Reason: Core features implemented (register/login/profile/threads/replies/report). Admin flows and role checks are implemented.
-- Admin UI & features (manage users/categories/reports) — 16/20
-  - Reason: Admin UI pages exist but are rudimentary and need more polish and CRUD completeness.
-- Secondary datastore usage & justification — 4/5
-  - Reason: Redis + Mongo used. Justification present but could be documented more clearly.
-- Security basics (hash, RBAC, validation, CSRF, XSS, rate limit, file policy) — 10/15
-  - Reason: Password hashing, RBAC, validation, rate limiting are present. CSRF token and CSP/XSS protections are incomplete.
-- Code quality, README, documentation, and demos — 16/20
-  - Reason: Code structured using hexagonal architecture and has comments; README is now added. More docs and automated tests would improve score.
+## Run & test password reset locally (development flow)
+1. Ensure `backend/.env` has no SMTP credentials so ConsoleEmailSender is active
+2. Trigger "forgot password" from the frontend or curl the API; the backend will log a ResetURL with a token
+3. Open the logged ResetURL in your browser to reset the password
 
-Total: 82 / 100
+If you want the app to actually send email, configure SendGrid (or other SMTP provider):
+- Configure `SMTP_HOST`, `SMTP_PORT` (587 for STARTTLS recommended), `SMTP_USER` (SendGrid uses `apikey`), and `SMTP_PASS` (API key)
+- Verify the `SMTP_FROM` address in SendGrid (Single Sender or Domain Authentication) to avoid 550 errors
 
-Notes on scoring: This is a pragmatic grading for a mini-project: implementation is solid for an MVP and demonstrates architectural understanding (hexagonal, adapters, usecases). The main deductions come from missing tests, missing CSRF/CSP hardening, and admin UI polish.
+## Troubleshooting notes
+- If emails are rejected with a 550 from SendGrid, verify the `From` address is a verified sender identity in your SendGrid account.
+- If a secret was accidentally committed, rotate/revoke the key immediately and remove the file from Git tracking.
 
-## Next steps I can do for you (pick any)
-- Add middleware to validate `Origin`/`Referer` for POST/PUT/DELETE and wire allowed origins via `.env` (recommended)
-- Change `Cors()` to read allowed origins and `allowCredentials` from env
+## Suggested next steps I can implement
+- Enforce origin/referrer validation middleware for state-changing endpoints and read allowed origins from env
+- Make CORS configuration environment-driven (`CORS_ALLOWED_ORIGINS`) and toggle `allowCredentials`
 - Add basic CSP and security headers middleware
-- Add a small unit test for `UserHandler` or `Report` usecase
+- Add a focused unit test for `UserHandler` or a core usecase
 
-If you tell me which of the above to implement first I will update the todo list and make the change.
+Tell me which of the next steps you'd like me to implement first and I'll add it to the todo list and apply the change.
 
 ---
-Generated by developer assistance — updates and small fixes can be made on request.
+Generated by developer assistance. Small edits or further expansion are available on request.
