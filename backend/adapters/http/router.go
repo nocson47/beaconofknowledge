@@ -5,7 +5,7 @@ import (
 	"github.com/nocson47/beaconofknowledge/internal/usecases"
 )
 
-func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.UserService, threadHandler *ThreadHandler, threadSvc usecases.ThreadService, voteHandler *VoteHandler, replyHandler *ReplyHandler, reportHandler *ReportHandler) {
+func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.UserService, threadHandler *ThreadHandler, threadSvc usecases.ThreadService, voteHandler *VoteHandler, replyHandler *ReplyHandler, reportHandler *ReportHandler, authHandler *AuthHandler) {
 	// Debug endpoints (file upload for avatar)
 	dbg := NewDebugHandler()
 	app.Post("/debug/avatar", dbg.UploadAvatar)
@@ -61,4 +61,12 @@ func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.User
 	app.Post("/reports", reportHandler.CreateReport)
 	app.Get("/reports", RequireAuth(), AdminOnly(userSvc), reportHandler.GetReports)
 	app.Put("/reports/:id", RequireAuth(), AdminOnly(userSvc), reportHandler.UpdateReport)
+
+	// Auth endpoints (password reset)
+	// Note: PasswordResetUsecase and its handler must be constructed/wired in cmd/main.go and passed in when SetupRouter is called.
+	// For now, register paths if handlers are present in globals (constructed elsewhere)
+	if authHandler != nil {
+		app.Post("/auth/forgot", authHandler.ForgotPassword)
+		app.Post("/auth/reset", authHandler.ResetPassword)
+	}
 }

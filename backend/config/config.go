@@ -23,6 +23,12 @@ type Configuration struct {
 	RedisPort     int    `mapstructure:"REDIS_PORT"`
 	RedisPassword string `mapstructure:"REDIS_PASSWORD"`
 	RedisDB       int    `mapstructure:"REDIS_DB"`
+	// SMTP configuration (optional). If SMTPHost is set, app will use SMTP to send emails.
+	SMTPHost     string `mapstructure:"SMTP_HOST"`
+	SMTPPort     int    `mapstructure:"SMTP_PORT"`
+	SMTPUser     string `mapstructure:"SMTP_USER"`
+	SMTPPassword string `mapstructure:"SMTP_PASS"`
+	SMTPFrom     string `mapstructure:"SMTP_FROM"`
 }
 
 // LoadConfig loads the configuration from a .env file or environment variables.

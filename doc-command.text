@@ -53,3 +53,7 @@ CREATE TABLE thread_tags (
     tag_id INT NOT NULL REFERENCES tags(id),
     PRIMARY KEY (thread_id, tag_id)
 );
+
+
+# รันสคริปต์ภายใน container โดยใช้ mongosh ที่มีใน image
+docker exec -i go_mongo mongosh "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@localhost:27017/admin" /mongo-init.js

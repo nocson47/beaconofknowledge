@@ -144,4 +144,14 @@ export async function getMe() {
   return request('/users/me');
 }
 
-export default { login, register, logout, getThreads, getThread, createThread, updateThread, deleteThread, voteThread, getThreadCounts, getUserByID, updateUser, uploadAvatar, report, getReports, getMe, getUserLocal, getRepliesByThread, createReply, updateReply, deleteReply };
+export async function requestPasswordReset(email: string, base_url?: string) {
+  const body = JSON.stringify({ email, base_url });
+  return request('/auth/forgot', { method: 'POST', body });
+}
+
+export async function resetPassword(token: string, password: string) {
+  const body = JSON.stringify({ token, password });
+  return request('/auth/reset', { method: 'POST', body });
+}
+
+export default { login, register, logout, getThreads, getThread, createThread, updateThread, deleteThread, voteThread, getThreadCounts, getUserByID, updateUser, uploadAvatar, report, getReports, getMe, getUserLocal, getRepliesByThread, createReply, updateReply, deleteReply, requestPasswordReset, resetPassword };

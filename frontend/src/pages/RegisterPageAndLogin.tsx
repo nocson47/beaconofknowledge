@@ -37,7 +37,7 @@ const LoginForm: React.FC = () => {
                 </div>
             </div>
             <div className="flex justify-between items-center">
-                <a href="#" className="text-sm text-primary-600 hover:underline" role="button">Forgot password</a>
+                <Link to="/forgot" className="text-sm text-primary-600 hover:underline" role="button">Forgot password</Link>
             </div>
             <button type="submit" className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 text-blue font-semibold rounded-md shadow focus:outline-none">Login</button>
             {error && <div className="text-red-500 mt-2">{error}</div>}

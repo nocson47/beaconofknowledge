@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/nocson47/beaconofknowledge/adapters/email"
 	"github.com/nocson47/beaconofknowledge/adapters/http"
 	mongoadapters "github.com/nocson47/beaconofknowledge/adapters/mongo"
 	postgressql "github.com/nocson47/beaconofknowledge/adapters/postgreSQL"
@@ -67,6 +70,10 @@ func main() {
 		reportRepoUse = mongoadapters.NewMongoReportRepo(mongoClient, cfg.MongoDBName)
 		// prepare a logs collection for optional audit writes
 		logCol = mongoClient.Database(cfg.MongoDBName).Collection("logs")
+		// ensure indexes and collections
+		if err := mongoadapters.EnsureIndexes(context.Background(), mongoClient, cfg.MongoDBName); err != nil {
+			log.Printf("Warning: failed to ensure mongo indexes: %v", err)
+		}
 	} else {
 		log.Printf("Mongo not available: %v — using Postgres reports", mErr)
 		reportRepoUse = postgressql.NewReportPostgres(postgresConn)
@@ -74,6 +81,20 @@ func main() {
 	}
 	reportService = usecases.NewReportService(reportRepoUse)
 	reportHandler = http.NewReportHandler(reportService, logCol)
+
+	// Password reset: wire Postgres password reset repo and usecase. Use SMTP if configured, otherwise default to console sender (dev)
+	prRepo := postgressql.NewPasswordResetPostgres(postgresConn)
+	var emailSender usecases.EmailSender
+	if cfg.SMTPHost != "" && cfg.SMTPPort != 0 {
+		log.Printf("Using SMTP email sender %s:%d", cfg.SMTPHost, cfg.SMTPPort)
+		smtpSender := email.NewSMTPEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom)
+		emailSender = smtpSender
+	} else {
+		log.Printf("Using console email sender (development)")
+		emailSender = email.NewConsoleEmailSender()
+	}
+	prUsecase := usecases.NewPasswordResetUsecase(userRepo, prRepo, emailSender, time.Hour*24)
+	authHandler := http.NewAuthHandler(prUsecase)
 
 	// Initialize Fiber app
 	app := fiber.New()
@@ -89,7 +110,7 @@ func main() {
 	})
 
 	// Set up routes (router config will use auth middleware where needed)
-	http.SetupRouter(app, userHandler, userService, threadHandler, threadService, voteHandler, replyHandler, reportHandler)
+	http.SetupRouter(app, userHandler, userService, threadHandler, threadService, voteHandler, replyHandler, reportHandler, authHandler)
 
 	// Start the server
 	log.Fatal(app.Listen(":3000"))

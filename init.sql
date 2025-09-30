@@ -125,3 +125,17 @@ WHERE u.username = 'alice' AND NOT EXISTS (SELECT 1 FROM votes v WHERE v.user_id
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB;
+
+
+
+  CREATE TABLE IF NOT EXISTS password_resets (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(128) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used BOOLEAN DEFAULT false
+);
+
+CREATE INDEX idx_password_resets_user ON password_resets(user_id);
+CREATE INDEX idx_password_resets_token_hash ON password_resets(token_hash);

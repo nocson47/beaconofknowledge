@@ -15,6 +15,9 @@ type UserPostgres struct {
 	db *pgxpool.Pool // Connection pool
 }
 
+// compile-time check: ensure UserPostgres implements repositories.UserRepository
+var _ repositories.UserRepository = (*UserPostgres)(nil)
+
 // Constructor function for UserPostgres
 func NewUserPostgres(db *pgxpool.Pool) repositories.UserRepository {
 	return &UserPostgres{db: db}
@@ -108,6 +111,21 @@ func (u *UserPostgres) DeleteUser(ctx context.Context, id int) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	return nil
+}
+
+// GetUserByEmail retrieves a user by their email
+func (u *UserPostgres) GetUserByEmail(ctx context.Context, email string) (*entities.User, error) {
+	query := `SELECT id, username, email, pass_hash, role, created_at, updated_at, COALESCE(bio, ''), COALESCE(social, ''), COALESCE(avatar_url, '') FROM users WHERE email = $1`
+	row := u.db.QueryRow(ctx, query, email)
+
+	var user entities.User
+	if err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt, &user.Bio, &user.Social, &user.AvatarURL); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to retrieve user by email: %w", err)
+	}
+	return &user, nil
 }
 
 // ```// filepath: /Users/forson47/golang_board/backend/adapters/postgreSQL/user_postgres.go
