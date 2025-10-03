@@ -1,3 +1,5 @@
 *.env
 
-*.text
+*.textbackend/.env
+frontend/node_modules/
+frontend/dist/
