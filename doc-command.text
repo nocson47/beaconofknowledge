@@ -1,0 +1,59 @@
+https://developer.mozilla.org/en-US/
+
+https://web.dev
+
+
+
+# เข้าไปใน Container PostgreSQL
+docker exec -it go_postgres bash
+
+# เข้าสู่ PostgreSQL
+psql -U admin -d goweb
+
+# รันคำสั่ง SQL
+SELECT id, username, email, pass_hash, role, created_at, update_at FROM public.users;
+
+# ออกจาก PostgreSQL
+\q
+
+# ออกจาก Container
+exit
+
+docker exec -it go_postgres psql -U admin -d goweb
+
+
+
+REDIS
+docker exec -it go_redis redis-cli -a mypassword
+# แล้วใน prompt ของ redis:
+# KEYS thread:*        <- (ระวัง KEYS ใน production มันช้า)
+# GET thread:1
+# TTL thread:1
+# TYPE thread:1
+
+
+CREATE TABLE threads (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    is_locked BOOLEAN DEFAULT FALSE,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE thread_tags (
+    thread_id INT NOT NULL REFERENCES threads(id),
+    tag_id INT NOT NULL REFERENCES tags(id),
+    PRIMARY KEY (thread_id, tag_id)
+);
+
+
+# รันสคริปต์ภายใน container โดยใช้ mongosh ที่มีใน image
+docker exec -i go_mongo mongosh "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@localhost:27017/admin" /mongo-init.js

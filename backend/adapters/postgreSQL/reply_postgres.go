@@ -1,0 +1,74 @@
+package postgressql
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/nocson47/beaconofknowledge/internal/entities"
+	"github.com/nocson47/beaconofknowledge/internal/repositories"
+)
+
+type ReplyPostgres struct {
+	db *pgxpool.Pool
+}
+
+func NewReplyPostgres(db *pgxpool.Pool) repositories.ReplyRepository {
+	return &ReplyPostgres{db: db}
+}
+
+func (r *ReplyPostgres) CreateReply(ctx context.Context, rep *entities.Reply) (int, error) {
+	query := `INSERT INTO replies (thread_id, user_id, parent_id, body, is_deleted, created_at) VALUES ($1,$2,$3,$4,false,NOW()) RETURNING id`
+	var id int
+	err := r.db.QueryRow(ctx, query, rep.ThreadID, rep.UserID, rep.ParentID, rep.Body).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("create reply: %w", err)
+	}
+	return id, nil
+}
+
+func (r *ReplyPostgres) GetRepliesByThread(ctx context.Context, threadID int) ([]entities.Reply, error) {
+	// Join users to include username as author for read responses
+	// only return replies that are not soft-deleted
+	query := `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.thread_id = $1 AND r.is_deleted = false ORDER BY r.created_at ASC`
+	rows, err := r.db.Query(ctx, query, threadID)
+	if err != nil {
+		return nil, fmt.Errorf("get replies: %w", err)
+	}
+	defer rows.Close()
+	var reps []entities.Reply
+	for rows.Next() {
+		var rep entities.Reply
+		if err := rows.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.Author, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan reply: %w", err)
+		}
+		reps = append(reps, rep)
+	}
+	return reps, nil
+}
+
+func (r *ReplyPostgres) DeleteReply(ctx context.Context, id int) error {
+	_, err := r.db.Exec(ctx, `UPDATE replies SET is_deleted = true, updated_at = NOW() WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete reply: %w", err)
+	}
+	return nil
+}
+
+func (r *ReplyPostgres) UpdateReply(ctx context.Context, rep *entities.Reply) error {
+	_, err := r.db.Exec(ctx, `UPDATE replies SET body=$1, updated_at = NOW() WHERE id = $2`, rep.Body, rep.ID)
+	if err != nil {
+		return fmt.Errorf("update reply: %w", err)
+	}
+	return nil
+}
+
+func (r *ReplyPostgres) GetReplyByID(ctx context.Context, id int) (*entities.Reply, error) {
+	var rep entities.Reply
+	// only return reply if not soft-deleted
+	row := r.db.QueryRow(ctx, `SELECT r.id, r.thread_id, r.user_id, u.username AS author, r.parent_id, r.body, r.is_deleted, r.created_at, r.updated_at FROM replies r LEFT JOIN users u ON u.id = r.user_id WHERE r.id = $1 AND r.is_deleted = false`, id)
+	if err := row.Scan(&rep.ID, &rep.ThreadID, &rep.UserID, &rep.Author, &rep.ParentID, &rep.Body, &rep.IsDeleted, &rep.CreatedAt, &rep.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("get reply by id: %w", err)
+	}
+	return &rep, nil
+}
