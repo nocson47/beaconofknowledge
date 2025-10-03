@@ -40,8 +40,20 @@ func RequireAuth() fiber.Handler {
 // RateLimiter returns a rate limiter middleware for JWT-authenticated routes
 func RateLimiter() fiber.Handler {
 	return limiter.New(limiter.Config{
-		Max:        30,
+		// Increase Max for local development and skip OPTIONS preflight requests
+		Max:        300,
 		Expiration: 1 * time.Minute,
+		// Don't apply rate limiting to OPTIONS (CORS preflight) or health checks
+		Next: func(c *fiber.Ctx) bool {
+			if c.Method() == "OPTIONS" {
+				return true
+			}
+			// allow healthcheck root path
+			if c.Path() == "/" {
+				return true
+			}
+			return false
+		},
 		KeyGenerator: func(c *fiber.Ctx) string {
 			// prefer user id if set, else IP
 			if uid := c.Locals("user_id"); uid != nil {
@@ -74,6 +86,92 @@ func AdminOnly(userSvc usecases.UserService) fiber.Handler {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "admin required"})
 		}
 		return c.Next()
+	}
+}
+
+// OwnerOrAdmin allows the request to proceed only if the authenticated user
+// is the owner of the resource (thread) or has an admin role.
+// It requires both a UserService (to lookup roles) and a ThreadService
+// (to lookup the thread owner).
+func OwnerOrAdmin(userSvc usecases.UserService, threadSvc usecases.ThreadService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		uidVal := c.Locals("user_id")
+		if uidVal == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing user id"})
+		}
+		uid, ok := uidVal.(int)
+		if !ok || uid == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user id"})
+		}
+
+		// parse thread id from params
+		idStr := c.Params("id")
+		if idStr == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing id"})
+		}
+		// convert to int
+		tid, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+		}
+
+		// lookup thread to find owner
+		thread, err := threadSvc.GetThreadByID(c.UserContext(), tid)
+		if err != nil || thread == nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "thread not found"})
+		}
+
+		// owner allowed
+		if thread.UserID == uid {
+			return c.Next()
+		}
+
+		// otherwise check admin role
+		user, err := userSvc.GetUserByID(c.UserContext(), uid)
+		if err != nil || user == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
+		}
+		if user.Role == "admin" {
+			return c.Next()
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "owner or admin required"})
+	}
+}
+
+// OwnerOrAdminReply checks that the authenticated user is the owner of the reply or an admin.
+func OwnerOrAdminReply(userSvc usecases.UserService, replySvc usecases.ReplyService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		uidVal := c.Locals("user_id")
+		if uidVal == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing user id"})
+		}
+		uid, ok := uidVal.(int)
+		if !ok || uid == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid user id"})
+		}
+		idStr := c.Params("id")
+		if idStr == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "missing id"})
+		}
+		rid, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+		}
+		rep, err := replySvc.GetReplyByID(c.UserContext(), rid)
+		if err != nil || rep == nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "reply not found"})
+		}
+		if rep.UserID == uid {
+			return c.Next()
+		}
+		user, err := userSvc.GetUserByID(c.UserContext(), uid)
+		if err != nil || user == nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
+		}
+		if user.Role == "admin" {
+			return c.Next()
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "owner or admin required"})
 	}
 }
 

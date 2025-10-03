@@ -14,6 +14,7 @@ type ReplyService interface {
 	GetReplyByID(ctx context.Context, id int) (*entities.Reply, error)
 	// DeleteReply enforces authorization: admins can delete any reply, users can delete their own
 	DeleteReply(ctx context.Context, id int, actorUserID int, isAdmin bool) error
+	UpdateReply(ctx context.Context, r *entities.Reply, actorUserID int, isAdmin bool) error
 }
 
 type replyService struct {
@@ -55,4 +56,25 @@ func (s *replyService) DeleteReply(ctx context.Context, id int, actorUserID int,
 		return fmt.Errorf("forbidden: cannot delete others' replies")
 	}
 	return s.repo.DeleteReply(ctx, id)
+}
+
+func (s *replyService) UpdateReply(ctx context.Context, r *entities.Reply, actorUserID int, isAdmin bool) error {
+	if r == nil {
+		return fmt.Errorf("reply is nil")
+	}
+	if r.Body == "" {
+		return fmt.Errorf("body is empty")
+	}
+	// fetch existing reply to check ownership
+	existing, err := s.repo.GetReplyByID(ctx, r.ID)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return fmt.Errorf("reply not found")
+	}
+	if !isAdmin && actorUserID != existing.UserID {
+		return fmt.Errorf("forbidden: cannot edit others' replies")
+	}
+	return s.repo.UpdateReply(ctx, r)
 }

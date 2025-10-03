@@ -1,25 +1,34 @@
 import React, { useState } from 'react';
-import './Login.css'; // You'll need to create this CSS file
+import { useNavigate } from 'react-router-dom';
+import api from '../lib/api';
 
 const Login: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Logging in with', { username, password });
+        setError(null);
+        try {
+            await api.login(username, password);
+            navigate('/');
+        } catch (err: any) {
+            setError(err.message || 'Login failed');
+        }
     }
 
     return (
         <div className="login-container">
             <form onSubmit={handleSubmit} className="login-form">
-                <h2>เข้าสู่ระบบ</h2>
+                <h2>Login</h2>
                 <div className="form-group">
                     <input
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="ชื่อผู้ใช้"
+                        placeholder="Username or email"
                         required
                     />
                 </div>
@@ -28,11 +37,12 @@ const Login: React.FC = () => {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="รหัสผ่าน"
+                        placeholder="Password"
                         required
                     />
                 </div>
-                <button type="submit">เข้าสู่ระบบ</button>
+                <button type="submit">Login</button>
+                {error && <div className="text-red-500 mt-2">{error}</div>}
             </form>
         </div>
     );

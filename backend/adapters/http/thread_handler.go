@@ -36,8 +36,15 @@ func (h *ThreadHandler) CreateThread(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid payload"})
 	}
+	// If authentication middleware provided a user id, prefer that over the body value.
+	userID := req.UserID
+	if uidVal := c.Locals("user_id"); uidVal != nil {
+		if uid, ok := uidVal.(int); ok && uid != 0 {
+			userID = uid
+		}
+	}
 	thread := &entities.Thread{
-		UserID: req.UserID,
+		UserID: userID,
 		Title:  req.Title,
 		Body:   req.Body,
 		Tags:   req.Tags,

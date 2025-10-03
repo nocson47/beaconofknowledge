@@ -5,9 +5,7 @@ import (
 	"github.com/nocson47/beaconofknowledge/internal/usecases"
 )
 
-func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.UserService, threadHandler *ThreadHandler, voteHandler *VoteHandler, replyHandler *ReplyHandler) {
-	// apply CORS globally
-	app.Use(Cors())
+func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.UserService, threadHandler *ThreadHandler, threadSvc usecases.ThreadService, voteHandler *VoteHandler, replyHandler *ReplyHandler) {
 	// User routes
 	users := app.Group("/users")
 	users.Get("/", userHandler.GetAllUsers)
@@ -22,12 +20,12 @@ func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.User
 
 	// Thread routes
 	threads := app.Group("/threads")
-	threads.Get("/", threadHandler.GetAllThreads)                  // GET /threads
-	threads.Post("/", RequireAuth(), threadHandler.CreateThread)   // POST /threads
-	threads.Get("/:id", threadHandler.GetThreadByID)               // GET /threads/:id
-	threads.Put("/:id", RequireAuth(), threadHandler.UpdateThread) // PUT /threads/:id
-	// Thread deletion is admin-only
-	threads.Delete("/:id", RequireAuth(), AdminOnly(userSvc), threadHandler.DeleteThread) // DELETE /threads/:id
+	threads.Get("/", threadHandler.GetAllThreads)                // GET /threads
+	threads.Post("/", RequireAuth(), threadHandler.CreateThread) // POST /threads
+	threads.Get("/:id", threadHandler.GetThreadByID)             // GET /threads/:id
+	// Only owner or admin may update/delete a thread
+	threads.Put("/:id", RequireAuth(), OwnerOrAdmin(userSvc, threadSvc), threadHandler.UpdateThread)    // PUT /threads/:id
+	threads.Delete("/:id", RequireAuth(), OwnerOrAdmin(userSvc, threadSvc), threadHandler.DeleteThread) // DELETE /threads/:id
 
 	// Vote routes
 	votes := app.Group("/votes")
@@ -40,5 +38,7 @@ func SetupRouter(app *fiber.App, userHandler *UserHandler, userSvc usecases.User
 	replies := app.Group("/replies")
 	replies.Post("/", RequireAuth(), replyHandler.CreateReply)
 	replies.Get("/thread/:thread_id", replyHandler.GetRepliesByThread)
-	replies.Delete(":id", RequireAuth(), replyHandler.DeleteReply)
+	// Allow owner or admin to update or delete a reply
+	replies.Put(":id", RequireAuth(), OwnerOrAdminReply(userSvc, replyHandler.svc), replyHandler.UpdateReply)
+	replies.Delete(":id", RequireAuth(), OwnerOrAdminReply(userSvc, replyHandler.svc), replyHandler.DeleteReply)
 }

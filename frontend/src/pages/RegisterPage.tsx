@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import api from '../lib/api';
+import { useNavigate } from 'react-router-dom';
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -6,15 +8,22 @@ export default function Register() {
     email: "",
     password: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 👉 Send form data to your backend here
-    console.log(form);
+    setError(null);
+    try {
+      await api.register({ username: form.username, email: form.email, password: form.password });
+      navigate('/register-login');
+    } catch (err: any) {
+      setError(err.message || 'Register failed');
+    }
   };
 
   return (
@@ -65,6 +74,7 @@ export default function Register() {
           >
             Create Account
           </button>
+          {error && <div className="text-red-500 mt-2">{error}</div>}
         </form>
       </div>
     </div>
